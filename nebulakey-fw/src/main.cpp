@@ -1,5 +1,6 @@
-#include <Arduino.h>
-#include <ezButton.h>
+#include <Arduino.h>  // main Arduino library
+#include <U8g2lib.h>  // display library
+#include <ezButton.h> // encoder button library
 
 constexpr const uint8_t PREVIOUS_BUTTON_PIN = 20;
 constexpr const uint8_t NEXT_BUTTON_PIN = 21;
