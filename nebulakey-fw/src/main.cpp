@@ -1,28 +1,25 @@
 #include <Arduino.h>  // main Arduino library
 #include <U8g2lib.h>  // display library
 #include <Keyboard.h> // keyboard controlling library
+#include <SimpleButton.h>
 
 ////////////////////////////////////////////////////
-// Previous and next buttons
-////////////////////////////////////////////////////
-constexpr const uint8_t PREVIOUS_BUTTON_PIN = 15;
-constexpr const uint8_t NEXT_BUTTON_PIN = 4;
-
-////////////////////////////////////////////////////
-// Encoder
-// TODO: refactor this into a separate class to make the code cleaner
+// PIN definitions
 ////////////////////////////////////////////////////
 constexpr const uint8_t CLK_PIN = 2;
 constexpr const uint8_t DT_PIN = 3;
 constexpr const uint8_t SW_PIN = 4;
-constexpr const uint8_t ENABLED_LED_PIN = 16;
+constexpr const uint8_t PREVIOUS_BUTTON_PIN = 6;
+constexpr const uint8_t NEXT_BUTTON_PIN = 7;
+////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////
+// Encoder values
+// TODO: refactor this into a separate class to make the code cleaner
+////////////////////////////////////////////////////
 uint8_t lastEncoded = 0;
 int8_t encoderValue = 0;
 uint8_t prev_CLK_state;
-uint8_t lastButtonState = HIGH;
-uint8_t buttonState = HIGH;
-uint32_t lastDebounceTime = 0;
-constexpr uint32_t debounceDelay = 20; // ms
 ////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////
@@ -30,17 +27,21 @@ constexpr uint32_t debounceDelay = 20; // ms
 String currentTrack = "No track playing";
 ////////////////////////////////////////////////////
 
+SimpleButton playPauseButton(SW_PIN);
+SimpleButton prevButton(PREVIOUS_BUTTON_PIN);
+SimpleButton nextButton(NEXT_BUTTON_PIN);
+
 void setup()
 {
   Serial.begin(115200);
-  pinMode(PREVIOUS_BUTTON_PIN, INPUT_PULLUP);
-  pinMode(NEXT_BUTTON_PIN, INPUT_PULLUP);
 
-  pinMode(SW_PIN, INPUT_PULLUP);
   pinMode(CLK_PIN, INPUT_PULLUP);
   pinMode(DT_PIN, INPUT_PULLUP);
 
   Keyboard.begin();
+  playPauseButton.begin();
+  prevButton.begin();
+  nextButton.begin();
 
   Serial.println("NebulaKey firmware started");
 
@@ -49,31 +50,16 @@ void setup()
 
 void loop()
 {
+  prevButton.update();
+  nextButton.update();
+  playPauseButton.update();
 
-  uint8_t reading = digitalRead(SW_PIN);
-
-  if (reading != lastButtonState)
+  if (playPauseButton.wasPressed())
   {
-    lastDebounceTime = millis();
+    Serial.println("Play/Pause");
+    Keyboard.consumerPress(KEY_PLAY_PAUSE);
+    Keyboard.consumerRelease();
   }
-
-  if ((millis() - lastDebounceTime) > debounceDelay)
-  {
-
-    if (reading != buttonState)
-    {
-      buttonState = reading;
-
-      if (buttonState == LOW)
-      {
-        Serial.println("Encoder button pressed (play/pause)");
-        Keyboard.consumerPress(KEY_PLAY_PAUSE);
-        Keyboard.consumerRelease();
-      }
-    }
-  }
-
-  lastButtonState = reading;
 
   int MSB = digitalRead(CLK_PIN);
   int LSB = digitalRead(DT_PIN);
@@ -105,14 +91,14 @@ void loop()
 
   lastEncoded = encoded;
 
-  if (digitalRead(PREVIOUS_BUTTON_PIN) == LOW)
+  if (prevButton.wasPressed())
   {
     Serial.println("Previous button pressed");
     Keyboard.consumerPress(KEY_SCAN_PREVIOUS);
     Keyboard.consumerRelease();
   }
 
-  if (digitalRead(NEXT_BUTTON_PIN) == LOW)
+  if (nextButton.wasPressed())
   {
     Serial.println("Next button pressed");
     Keyboard.consumerPress(KEY_SCAN_NEXT);
