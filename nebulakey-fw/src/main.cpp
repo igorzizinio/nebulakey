@@ -1,6 +1,5 @@
 #include <Arduino.h>  // main Arduino library
 #include <U8g2lib.h>  // display library
-#include <ezButton.h> // encoder button library
 #include <Keyboard.h> // keyboard controlling library
 
 
@@ -13,12 +12,20 @@ constexpr const uint8_t NEXT_BUTTON_PIN = 21;
 constexpr const uint8_t CLK_PIN = 2;
 constexpr const uint8_t DT_PIN = 3;
 constexpr const uint8_t SW_PIN = 4;
-
 constexpr const uint8_t ENABLED_LED_PIN = 16;
+
+uint8_t lastEncoded = 0;
+int8_t encoderValue = 0;
 
 uint8_t prev_CLK_state;
 
-ezButton encoderButton(SW_PIN);
+uint8_t lastButtonState = HIGH;
+uint8_t buttonState = HIGH;
+
+uint32_t lastDebounceTime = 0;
+constexpr uint32_t debounceDelay = 20; // ms
+
+String currentTrack = "No track playing";
 
 void setup()
 {
@@ -26,9 +33,9 @@ void setup()
   pinMode(PREVIOUS_BUTTON_PIN, INPUT_PULLUP);
   pinMode(NEXT_BUTTON_PIN, INPUT_PULLUP);
 
+  pinMode(SW_PIN, INPUT_PULLUP);
   pinMode(CLK_PIN, INPUT_PULLUP);
   pinMode(DT_PIN, INPUT_PULLUP);
-  encoderButton.setDebounceTime(50);
 
   Keyboard.begin();
   
@@ -40,29 +47,63 @@ void setup()
 
 void loop()
 {
-  encoderButton.loop();
 
-  if (encoderButton.isPressed())
-  {
-    Serial.println("Encoder button pressed (play/pause)");
-    Keyboard.consumerPress(KEY_PLAY_PAUSE);
-    Keyboard.consumerRelease();
-  }
+  uint8_t reading = digitalRead(SW_PIN);
 
-  uint8_t clkState = digitalRead(CLK_PIN);
+// se mudou, reseta timer
+if (reading != lastButtonState) {
+  lastDebounceTime = millis();
+}
 
-  // If the state of CLK is changed, then pulse occurred
-  if (clkState != prev_CLK_state && clkState == LOW) {
-    // the encoder is rotating in counter-clockwise direction => decrease the counter
-    if (digitalRead(DT_PIN) == LOW) {
-      Serial.println("Encoder turned counter-clockwise (vol down)");
-      Keyboard.consumerPress(KEY_VOLUME_DECREMENT);
-      Keyboard.consumerRelease();
-    } else {
-      Serial.println("Encoder turned clockwise (vol up)");
-      Keyboard.consumerPress(KEY_VOLUME_INCREMENT);
+// espera estabilizar
+if ((millis() - lastDebounceTime) > debounceDelay) {
+
+  if (reading != buttonState) {
+    buttonState = reading;
+
+    // botão pressionado (INPUT_PULLUP → LOW = pressionado)
+    if (buttonState == LOW) {
+      Serial.println("Encoder button pressed (play/pause)");
+      Keyboard.consumerPress(KEY_PLAY_PAUSE);
       Keyboard.consumerRelease();
     }
   }
-  prev_CLK_state = clkState;
+}
+
+lastButtonState = reading;
+
+  int MSB = digitalRead(CLK_PIN);
+  int LSB = digitalRead(DT_PIN);
+
+  int encoded = (MSB << 1) | LSB;
+  int sum  = (lastEncoded << 2) | encoded;
+
+  if(sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011)
+    encoderValue++;
+
+  if(sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000)
+    encoderValue--;
+
+  if (encoderValue >= 4) {
+    Keyboard.consumerPress(KEY_VOLUME_INCREMENT);
+    Keyboard.consumerRelease();
+    encoderValue = 0;
+  }
+
+  if (encoderValue <= -4) {
+    Keyboard.consumerPress(KEY_VOLUME_DECREMENT);
+    Keyboard.consumerRelease();
+    encoderValue = 0;
+  }
+
+  lastEncoded = encoded;
+
+  while (Serial.available()) {
+    String line = Serial.readStringUntil('\n');
+    if (line.startsWith("TRACK: ")) {
+      currentTrack = line.substring(7);
+      Serial.print("Current track updated: ");
+      Serial.println(currentTrack);
+    }
+  }
 }
