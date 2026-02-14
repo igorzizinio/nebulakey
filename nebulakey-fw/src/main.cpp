@@ -2,9 +2,8 @@
 #include <U8g2lib.h>  // display library
 #include <Keyboard.h> // keyboard controlling library
 
-
-constexpr const uint8_t PREVIOUS_BUTTON_PIN = 20;
-constexpr const uint8_t NEXT_BUTTON_PIN = 21;
+constexpr const uint8_t PREVIOUS_BUTTON_PIN = 15;
+constexpr const uint8_t NEXT_BUTTON_PIN = 14;
 
 // Encoder pins
 
@@ -38,11 +37,10 @@ void setup()
   pinMode(DT_PIN, INPUT_PULLUP);
 
   Keyboard.begin();
-  
 
   Serial.println("NebulaKey firmware started");
 
-   prev_CLK_state = digitalRead(CLK_PIN);
+  prev_CLK_state = digitalRead(CLK_PIN);
 }
 
 void loop()
@@ -50,47 +48,52 @@ void loop()
 
   uint8_t reading = digitalRead(SW_PIN);
 
-// se mudou, reseta timer
-if (reading != lastButtonState) {
-  lastDebounceTime = millis();
-}
+  if (reading != lastButtonState)
+  {
+    lastDebounceTime = millis();
+  }
 
-// espera estabilizar
-if ((millis() - lastDebounceTime) > debounceDelay) {
+  if ((millis() - lastDebounceTime) > debounceDelay)
+  {
 
-  if (reading != buttonState) {
-    buttonState = reading;
+    if (reading != buttonState)
+    {
+      buttonState = reading;
 
-    // botão pressionado (INPUT_PULLUP → LOW = pressionado)
-    if (buttonState == LOW) {
-      Serial.println("Encoder button pressed (play/pause)");
-      Keyboard.consumerPress(KEY_PLAY_PAUSE);
-      Keyboard.consumerRelease();
+      if (buttonState == LOW)
+      {
+        Serial.println("Encoder button pressed (play/pause)");
+        Keyboard.consumerPress(KEY_PLAY_PAUSE);
+        Keyboard.consumerRelease();
+      }
     }
   }
-}
 
-lastButtonState = reading;
+  lastButtonState = reading;
 
   int MSB = digitalRead(CLK_PIN);
   int LSB = digitalRead(DT_PIN);
 
   int encoded = (MSB << 1) | LSB;
-  int sum  = (lastEncoded << 2) | encoded;
+  int sum = (lastEncoded << 2) | encoded;
 
-  if(sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011)
+  if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011)
     encoderValue++;
 
-  if(sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000)
+  if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000)
     encoderValue--;
 
-  if (encoderValue >= 4) {
+  if (encoderValue >= 4)
+  {
+    Serial.println("Volume +");
     Keyboard.consumerPress(KEY_VOLUME_INCREMENT);
     Keyboard.consumerRelease();
     encoderValue = 0;
   }
 
-  if (encoderValue <= -4) {
+  if (encoderValue <= -4)
+  {
+    Serial.println("Volume -");
     Keyboard.consumerPress(KEY_VOLUME_DECREMENT);
     Keyboard.consumerRelease();
     encoderValue = 0;
@@ -98,9 +101,25 @@ lastButtonState = reading;
 
   lastEncoded = encoded;
 
-  while (Serial.available()) {
+  if (digitalRead(PREVIOUS_BUTTON_PIN) == LOW)
+  {
+    Serial.println("Previous button pressed");
+    Keyboard.consumerPress(KEY_SCAN_PREVIOUS);
+    Keyboard.consumerRelease();
+  }
+
+  if (digitalRead(NEXT_BUTTON_PIN) == LOW)
+  {
+    Serial.println("Next button pressed");
+    Keyboard.consumerPress(KEY_SCAN_NEXT);
+    Keyboard.consumerRelease();
+  }
+
+  while (Serial.available())
+  {
     String line = Serial.readStringUntil('\n');
-    if (line.startsWith("TRACK: ")) {
+    if (line.startsWith("TRACK: "))
+    {
       currentTrack = line.substring(7);
       Serial.print("Current track updated: ");
       Serial.println(currentTrack);
