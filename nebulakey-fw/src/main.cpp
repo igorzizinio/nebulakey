@@ -2,29 +2,32 @@
 #include <U8g2lib.h>  // display library
 #include <Keyboard.h> // keyboard controlling library
 
+////////////////////////////////////////////////////
+// Previous and next buttons
+////////////////////////////////////////////////////
 constexpr const uint8_t PREVIOUS_BUTTON_PIN = 15;
-constexpr const uint8_t NEXT_BUTTON_PIN = 14;
+constexpr const uint8_t NEXT_BUTTON_PIN = 4;
 
-// Encoder pins
-
-// Placeholders, got from https://arduinogetstarted.com/tutorials/arduino-rotary-encoder
+////////////////////////////////////////////////////
+// Encoder
+////////////////////////////////////////////////////
 constexpr const uint8_t CLK_PIN = 2;
 constexpr const uint8_t DT_PIN = 3;
 constexpr const uint8_t SW_PIN = 4;
 constexpr const uint8_t ENABLED_LED_PIN = 16;
-
 uint8_t lastEncoded = 0;
 int8_t encoderValue = 0;
-
 uint8_t prev_CLK_state;
-
 uint8_t lastButtonState = HIGH;
 uint8_t buttonState = HIGH;
-
 uint32_t lastDebounceTime = 0;
 constexpr uint32_t debounceDelay = 20; // ms
+////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////
+// Metadata (will be fetched from the host via software (Serial) and displayed on the OLED display)
 String currentTrack = "No track playing";
+////////////////////////////////////////////////////
 
 void setup()
 {
