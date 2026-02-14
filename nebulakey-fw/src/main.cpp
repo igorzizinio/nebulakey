@@ -27,9 +27,9 @@ uint8_t prev_CLK_state;
 String currentTrack = "No track playing";
 ////////////////////////////////////////////////////
 
-SimpleButton playPauseButton(SW_PIN);
-SimpleButton prevButton(PREVIOUS_BUTTON_PIN);
-SimpleButton nextButton(NEXT_BUTTON_PIN);
+SimpleButton playPauseButton(SW_PIN, 50);
+SimpleButton prevButton(PREVIOUS_BUTTON_PIN, 50);
+SimpleButton nextButton(NEXT_BUTTON_PIN, 50);
 
 void setup()
 {
