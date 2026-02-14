@@ -8,9 +8,12 @@
 ////////////////////////////////////////////////////
 constexpr const uint8_t CLK_PIN = 2;
 constexpr const uint8_t DT_PIN = 3;
-constexpr const uint8_t SW_PIN = 4;
-constexpr const uint8_t PREVIOUS_BUTTON_PIN = 6;
-constexpr const uint8_t NEXT_BUTTON_PIN = 7;
+constexpr const uint8_t SW_PIN = 1;
+constexpr const uint8_t PREVIOUS_BUTTON_PIN = 15;
+constexpr const uint8_t NEXT_BUTTON_PIN = 14;
+
+constexpr const uint8_t DISPLAY_SDA = 4;
+constexpr const uint8_t DISPLAY_SCL = 5;
 ////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////
@@ -31,12 +34,20 @@ SimpleButton playPauseButton(SW_PIN, 50);
 SimpleButton prevButton(PREVIOUS_BUTTON_PIN, 50);
 SimpleButton nextButton(NEXT_BUTTON_PIN, 50);
 
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(
+    U8G2_R0,
+    U8X8_PIN_NONE,
+    DISPLAY_SCL,
+    DISPLAY_SDA);
+
 void setup()
 {
   Serial.begin(115200);
 
   pinMode(CLK_PIN, INPUT_PULLUP);
   pinMode(DT_PIN, INPUT_PULLUP);
+
+  u8g2.begin();
 
   Keyboard.begin();
   playPauseButton.begin();
@@ -115,4 +126,9 @@ void loop()
       Serial.println(currentTrack);
     }
   }
+
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_ncenB08_tr);
+  u8g2.drawStr(0, 20, "NebulaKey");
+  u8g2.sendBuffer();
 }
