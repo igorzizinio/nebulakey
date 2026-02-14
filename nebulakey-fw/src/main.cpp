@@ -10,6 +10,7 @@ constexpr const uint8_t NEXT_BUTTON_PIN = 4;
 
 ////////////////////////////////////////////////////
 // Encoder
+// TODO: refactor this into a separate class to make the code cleaner
 ////////////////////////////////////////////////////
 constexpr const uint8_t CLK_PIN = 2;
 constexpr const uint8_t DT_PIN = 3;
