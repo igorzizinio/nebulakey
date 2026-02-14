@@ -2,6 +2,7 @@
 #include <U8g2lib.h>  // display library
 #include <Keyboard.h> // keyboard controlling library
 #include <SimpleButton.h>
+#include <Bitmaps.h>
 
 ////////////////////////////////////////////////////
 // PIN definitions
@@ -128,7 +129,32 @@ void loop()
   }
 
   u8g2.clearBuffer();
+
   u8g2.setFont(u8g2_font_ncenB08_tr);
-  u8g2.drawStr(0, 20, "NebulaKey");
+
+  uint16_t screenWidth = u8g2.getWidth();
+  uint16_t screenHeight = u8g2.getHeight();
+
+  const char *text = currentTrack.c_str();
+  int textWidth = u8g2.getStrWidth(text);
+
+  int x = (screenWidth - textWidth) / 2;
+  int y = screenHeight / 2;
+
+  u8g2.drawStr(x, y, text);
+
+  // -------- Media bar --------
+  int iconY = screenHeight - ICON_8_HEIGHT;
+
+  int prevX = 8;
+  int playX = (screenWidth - ICON_8_WIDTH) / 2;
+  int nextX = screenWidth - ICON_8_WIDTH - 8;
+
+  u8g2.drawXBMP(prevX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_prev_8x8);
+  u8g2.drawXBMP(playX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_play_8x8);
+  u8g2.drawXBMP(nextX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_next_8x8);
+
+  u8g2.sendBuffer();
+
   u8g2.sendBuffer();
 }
