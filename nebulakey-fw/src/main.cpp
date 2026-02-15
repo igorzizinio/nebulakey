@@ -85,6 +85,7 @@ void loop()
   if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000)
     encoderValue--;
 
+  // basicamente pegamos varias leituras (pq o encoder manda MUITossss valores de uma vez, meio flutuantes e incertos), e fazemos uma média pra ter mais precisão noq realmente aconteceu!
   if (encoderValue >= 4)
   {
     Serial.println("Volume +");
@@ -120,41 +121,60 @@ void loop()
   while (Serial.available())
   {
     String line = Serial.readStringUntil('\n');
-    if (line.startsWith("TRACK: "))
+
+    if (line == "HELLO")
+    {
+      Serial.println("HOWDY");
+    }
+
+    else if (line.startsWith("TRACK: "))
     {
       currentTrack = line.substring(7);
-      Serial.print("Current track updated: ");
-      Serial.println(currentTrack);
+      Serial.println("OK");
+    }
+    else
+    {
+      Serial.println("invalid input");
     }
   }
+}
 
-  u8g2.clearBuffer();
+// executa coisas relacionadas ao display no outro core (i2c pesado), pra n acabar travando o encoder
+// ! LEMBRAR SEMPRE: usar valores thread-safe (uint8_t) com volatile
+void loop1()
+{
+  static unsigned long lastDisplayUpdate = 0;
 
-  u8g2.setFont(u8g2_font_ncenB08_tr);
+  // 33 fps, acredito q seja bom para um futuro visualizador de audio
+  if (millis() - lastDisplayUpdate > 33)
+  {
+    lastDisplayUpdate = millis();
 
-  uint16_t screenWidth = u8g2.getWidth();
-  uint16_t screenHeight = u8g2.getHeight();
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_ncenB08_tr);
 
-  const char *text = currentTrack.c_str();
-  int textWidth = u8g2.getStrWidth(text);
+    uint16_t screenWidth = u8g2.getWidth();
+    uint16_t screenHeight = u8g2.getHeight();
 
-  int x = (screenWidth - textWidth) / 2;
-  int y = screenHeight / 2;
+    const char *text = currentTrack.c_str();
+    int textWidth = u8g2.getStrWidth(text);
 
-  u8g2.drawStr(x, y, text);
+    int x = (screenWidth - textWidth) / 2;
+    int y = screenHeight / 2;
 
-  // -------- Media bar --------
-  int iconY = screenHeight - ICON_8_HEIGHT;
+    // TODO: text scrolling if too big (or simpler and ugglier solution just add ...)
+    u8g2.drawStr(x, y, text);
 
-  int prevX = 8;
-  int playX = (screenWidth - ICON_8_WIDTH) / 2;
-  int nextX = screenWidth - ICON_8_WIDTH - 8;
+    int iconY = screenHeight - ICON_8_HEIGHT;
 
-  u8g2.drawXBMP(prevX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_prev_8x8);
-  u8g2.drawXBMP(playX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_play_8x8);
-  u8g2.drawXBMP(nextX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_next_8x8);
+    int prevX = 8;
+    int playX = (screenWidth - ICON_8_WIDTH) / 2;
+    int nextX = screenWidth - ICON_8_WIDTH - 8;
 
-  u8g2.sendBuffer();
+    u8g2.drawXBMP(prevX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_prev_8x8);
+    u8g2.drawXBMP(playX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_play_8x8);
+    u8g2.drawXBMP(nextX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_next_8x8);
 
-  u8g2.sendBuffer();
+    u8g2.sendBuffer();
+  }
 }
