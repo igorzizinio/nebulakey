@@ -28,7 +28,10 @@ uint8_t prev_CLK_state;
 
 ////////////////////////////////////////////////////
 // Metadata (will be fetched from the host via software (Serial) and displayed on the OLED display)
-String currentTrack = "No track playing";
+volatile char currentTrack[32] = "No track playing";
+volatile uint64_t currentTime = 0;
+volatile uint64_t endTime = 0;
+// the current software send in SECONDS, so uint64 is big overkill, BUT i want to make sure this never overflows (rp2040 has no problems with mem anyway)
 ////////////////////////////////////////////////////
 
 SimpleButton playPauseButton(SW_PIN, 50);
@@ -47,8 +50,6 @@ void setup()
 
   pinMode(CLK_PIN, INPUT_PULLUP);
   pinMode(DT_PIN, INPUT_PULLUP);
-
-  u8g2.begin();
 
   Keyboard.begin();
   playPauseButton.begin();
@@ -129,7 +130,27 @@ void loop()
 
     else if (line.startsWith("TRACK: "))
     {
-      currentTrack = line.substring(7);
+      strncpy((char *)currentTrack, line.substring(7).c_str(), sizeof(currentTrack) - 1);
+      currentTrack[sizeof(currentTrack) - 1] = '\0'; // garante null terminator
+      Serial.println("OK");
+    }
+    else if (line.startsWith("TIMELINE: "))
+    {
+      String timeline = line.substring(10);
+
+      int slashIndex = timeline.indexOf("/");
+      if (slashIndex < 0)
+      {
+        Serial.println("INVALID TIMELINE");
+        return;
+      }
+
+      String currentStr = timeline.substring(0, slashIndex);
+      String endStr = timeline.substring(slashIndex + 1);
+
+      currentTime = currentStr.toInt();
+      endTime = endStr.toInt();
+
       Serial.println("OK");
     }
     else
@@ -144,11 +165,48 @@ void loop()
 void loop1()
 {
   static unsigned long lastDisplayUpdate = 0;
+  static bool displayReady = false;
+  static char lastTrack[32] = "";
+  static uint16_t lastTime = 0;
+  static uint16_t lastEnd = 0;
+  static unsigned long lastHeartbeat = 0;
 
-  // 33 fps, acredito q seja bom para um futuro visualizador de audio
+  if (!displayReady)
+  {
+    u8g2.begin();
+    u8g2.setPowerSave(0);
+    u8g2.setBusClock(400000);
+    displayReady = true;
+  }
+
+  // Atualiza quando os dados mudam, com um heartbeat lento para evitar tela “travada”
   if (millis() - lastDisplayUpdate > 33)
   {
     lastDisplayUpdate = millis();
+
+    // ==== Copia valores thread-safe de variáveis voláteis ====
+    char trackCopy[32];
+    uint64_t timeCopy, endCopy;
+
+    noInterrupts(); // opcional no RP2040 para evitar leitura parcialmente escrita
+    strncpy(trackCopy, (const char *)currentTrack, sizeof(trackCopy) - 1);
+    trackCopy[sizeof(trackCopy) - 1] = '\0';
+    timeCopy = currentTime;
+    endCopy = endTime;
+    interrupts();
+
+    bool changed = (strncmp(trackCopy, lastTrack, sizeof(lastTrack)) != 0) ||
+                   (timeCopy != lastTime) ||
+                   (endCopy != lastEnd);
+
+    if (!changed && (millis() - lastHeartbeat < 500))
+      return;
+
+    lastHeartbeat = millis();
+    strncpy(lastTrack, trackCopy, sizeof(lastTrack) - 1);
+    lastTrack[sizeof(lastTrack) - 1] = '\0';
+    lastTime = timeCopy;
+    lastEnd = endCopy;
 
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_ncenB08_tr);
@@ -156,17 +214,28 @@ void loop1()
     uint16_t screenWidth = u8g2.getWidth();
     uint16_t screenHeight = u8g2.getHeight();
 
-    const char *text = currentTrack.c_str();
-    int textWidth = u8g2.getStrWidth(text);
+    // ==== Progress bar no topo ====
+    int filledPixels = 0;
+    if (endCopy > 0)
+    {
+      filledPixels = (int)((float)timeCopy / endCopy * (screenWidth - 4));
+      if (filledPixels < 0)
+        filledPixels = 0;
+      if (filledPixels > (int)(screenWidth - 4))
+        filledPixels = screenWidth - 4;
+    }
+    u8g2.drawFrame(0, 0, screenWidth, 10); // borda da barra
+    if (filledPixels > 0)
+      u8g2.drawBox(1, 1, filledPixels, 8); // preenchimento
 
+    // ==== Track name centralizado ====
+    int textWidth = u8g2.getStrWidth(trackCopy);
     int x = (screenWidth - textWidth) / 2;
     int y = screenHeight / 2;
+    u8g2.drawStr(x, y, trackCopy);
 
-    // TODO: text scrolling if too big (or simpler and ugglier solution just add ...)
-    u8g2.drawStr(x, y, text);
-
+    // ==== Ícones no rodapé ====
     int iconY = screenHeight - ICON_8_HEIGHT;
-
     int prevX = 8;
     int playX = (screenWidth - ICON_8_WIDTH) / 2;
     int nextX = screenWidth - ICON_8_WIDTH - 8;
