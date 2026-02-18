@@ -157,95 +157,79 @@ void setup1()
 void loop1()
 {
   static unsigned long lastDisplayUpdate = 0;
-  static char lastTrack[32] = "";
-  static uint16_t lastTime = 0;
-  static uint16_t lastEnd = 0;
-  static unsigned long lastHeartbeat = 0;
   static uint16_t scrollIndex = 0;
 
-  // Atualiza quando os dados mudam, com um heartbeat lento para evitar tela “travada”
-  if (millis() - lastDisplayUpdate > 33)
+  // Update display at consistent 33ms intervals (~30fps) for smooth scrolling
+  if (millis() - lastDisplayUpdate < 33)
+    return;
+
+  lastDisplayUpdate = millis();
+
+  // ==== Copia valores thread-safe de variáveis voláteis ====
+  char trackCopy[32];
+  uint64_t timeCopy, endCopy;
+
+  noInterrupts(); // opcional no RP2040 para evitar leitura parcialmente escrita
+  strncpy(trackCopy, (const char *)currentTrack, sizeof(trackCopy) - 1);
+  trackCopy[sizeof(trackCopy) - 1] = '\0';
+  timeCopy = currentTime;
+  endCopy = endTime;
+  interrupts();
+
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_ncenB08_tr);
+
+  uint16_t screenWidth = u8g2.getWidth();
+  uint16_t screenHeight = u8g2.getHeight();
+
+  // ==== Progress bar no topo ====
+  int filledPixels = 0;
+  if (true)
   {
-    lastDisplayUpdate = millis();
-
-    // ==== Copia valores thread-safe de variáveis voláteis ====
-    char trackCopy[32];
-    uint64_t timeCopy, endCopy;
-
-    noInterrupts(); // opcional no RP2040 para evitar leitura parcialmente escrita
-    strncpy(trackCopy, (const char *)currentTrack, sizeof(trackCopy) - 1);
-    trackCopy[sizeof(trackCopy) - 1] = '\0';
-    timeCopy = currentTime;
-    endCopy = endTime;
-    interrupts();
-
-    bool changed = (strncmp(trackCopy, lastTrack, sizeof(lastTrack)) != 0) ||
-                   (timeCopy != lastTime) ||
-                   (endCopy != lastEnd);
-
-    if (!changed && (millis() - lastHeartbeat < 500))
-      return;
-
-    lastHeartbeat = millis();
-    strncpy(lastTrack, trackCopy, sizeof(lastTrack) - 1);
-    lastTrack[sizeof(lastTrack) - 1] = '\0';
-    lastTime = timeCopy;
-    lastEnd = endCopy;
-
-    u8g2.clearBuffer();
-    u8g2.setFont(u8g2_font_ncenB08_tr);
-
-    uint16_t screenWidth = u8g2.getWidth();
-    uint16_t screenHeight = u8g2.getHeight();
-
-    // ==== Progress bar no topo ====
-    int filledPixels = 0;
-    if (endCopy > 0)
-    {
-      filledPixels = (int)((float)timeCopy / endCopy * (screenWidth - 4));
-      if (filledPixels < 0)
-        filledPixels = 0;
-      if (filledPixels > (int)(screenWidth - 4))
-        filledPixels = screenWidth - 4;
-    }
-    u8g2.drawFrame(0, 0, screenWidth, 10); // borda da barra
-    if (filledPixels > 0)
-      u8g2.drawBox(1, 1, filledPixels, 8); // preenchimento
-
-    // ==== Track name centralizado ====
-    // TODO: text scrolling
-    int textWidth = u8g2.getStrWidth(trackCopy);
-
-    if (textWidth > screenWidth)
-    {
-      int x = 0 - scrollIndex;
-      int y = screenHeight / 2;
-      // draw twice to avoid blank screen
-      u8g2.drawStr(x, y, trackCopy);
-      u8g2.drawStr(x + textWidth + 8, y, trackCopy);
-
-      scrollIndex++;
-      // Reset scroll when text has fully scrolled off screen
-      if (scrollIndex > textWidth + screenWidth + 8)
-        scrollIndex = 0;
-    }
-    else
-    {
-      int x = (screenWidth - textWidth) / 2;
-      int y = screenHeight / 2;
-      u8g2.drawStr(x, y, trackCopy);
-    }
-
-    // ==== Ícones (previous play next) ====
-    int iconY = screenHeight - ICON_8_HEIGHT;
-    int prevX = 8;
-    int playX = (screenWidth - ICON_8_WIDTH) / 2;
-    int nextX = screenWidth - ICON_8_WIDTH - 8;
-
-    u8g2.drawXBMP(prevX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_prev_8x8);
-    u8g2.drawXBMP(playX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_play_8x8);
-    u8g2.drawXBMP(nextX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_next_8x8);
-
-    u8g2.sendBuffer();
+    filledPixels = (int)((float)timeCopy / endCopy * (screenWidth - 4));
+    if (filledPixels < 0)
+      filledPixels = 0;
+    if (filledPixels > (int)(screenWidth - 4))
+      filledPixels = screenWidth - 2;
   }
+  u8g2.drawFrame(0, 0, screenWidth, 10); // borda da barra
+  if (filledPixels > 0)
+    u8g2.drawBox(1, 1, filledPixels, 8); // preenchimento
+
+  // ==== Track name centralizado ====
+  // TODO: text scrolling
+  int textWidth = u8g2.getStrWidth(trackCopy);
+
+  if (textWidth > screenWidth)
+  {
+    int x = 0 - scrollIndex;
+    int y = screenHeight / 2;
+    // draw twice to avoid blank screen
+    u8g2.drawStr(x, y, trackCopy);
+    u8g2.drawStr(x + textWidth + 8, y, trackCopy);
+
+    scrollIndex++;
+    // Reset scroll when text has fully scrolled off screen
+    if (scrollIndex >= textWidth + 8)
+      scrollIndex = 0;
+  }
+  else
+  {
+    int x = (screenWidth - textWidth) / 2;
+    int y = screenHeight / 2;
+    u8g2.drawStr(x, y, trackCopy);
+    scrollIndex = 0;
+  }
+
+  // ==== Ícones (previous play next) ====
+  int iconY = screenHeight - ICON_8_HEIGHT;
+  int prevX = 8;
+  int playX = (screenWidth - ICON_8_WIDTH) / 2;
+  int nextX = screenWidth - ICON_8_WIDTH - 8;
+
+  u8g2.drawXBMP(prevX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_prev_8x8);
+  u8g2.drawXBMP(playX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_play_8x8);
+  u8g2.drawXBMP(nextX, iconY, ICON_8_WIDTH, ICON_8_HEIGHT, icon_next_8x8);
+
+  u8g2.sendBuffer();
 }
