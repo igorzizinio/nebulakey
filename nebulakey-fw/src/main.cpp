@@ -3,6 +3,7 @@
 #include <Keyboard.h> // keyboard controlling library
 #include <SimpleButton.h>
 #include <Bitmaps.h>
+#include <Uncoder.h>
 
 ////////////////////////////////////////////////////
 // PIN definitions
@@ -38,6 +39,8 @@ SimpleButton playPauseButton(SW_PIN, 50);
 SimpleButton prevButton(PREVIOUS_BUTTON_PIN, 50);
 SimpleButton nextButton(NEXT_BUTTON_PIN, 50);
 
+Uncoder encoder(DT_PIN, CLK_PIN);
+
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(
     U8G2_R0,
     U8X8_PIN_NONE,
@@ -48,17 +51,13 @@ void setup()
 {
   Serial.begin(115200);
 
-  pinMode(CLK_PIN, INPUT_PULLUP);
-  pinMode(DT_PIN, INPUT_PULLUP);
-
   Keyboard.begin();
+  encoder.begin();
   playPauseButton.begin();
   prevButton.begin();
   nextButton.begin();
 
   Serial.println("NebulaKey firmware started");
-
-  prev_CLK_state = digitalRead(CLK_PIN);
 }
 
 void loop()
@@ -66,6 +65,7 @@ void loop()
   prevButton.update();
   nextButton.update();
   playPauseButton.update();
+  encoder.update();
 
   if (playPauseButton.wasPressed())
   {
@@ -74,36 +74,21 @@ void loop()
     Keyboard.consumerRelease();
   }
 
-  int MSB = digitalRead(CLK_PIN);
-  int LSB = digitalRead(DT_PIN);
+  int8_t direction = encoder.getDirection();
 
-  int encoded = (MSB << 1) | LSB;
-  int sum = (lastEncoded << 2) | encoded;
-
-  if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011)
-    encoderValue++;
-
-  if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000)
-    encoderValue--;
-
-  // basicamente pegamos varias leituras (pq o encoder manda MUITossss valores de uma vez, meio flutuantes e incertos), e fazemos uma média pra ter mais precisão noq realmente aconteceu!
-  if (encoderValue >= 4)
+  if (direction == 1)
   {
     Serial.println("Volume +");
     Keyboard.consumerPress(KEY_VOLUME_INCREMENT);
     Keyboard.consumerRelease();
-    encoderValue = 0;
   }
 
-  if (encoderValue <= -4)
+  if (direction == -1)
   {
     Serial.println("Volume -");
     Keyboard.consumerPress(KEY_VOLUME_DECREMENT);
     Keyboard.consumerRelease();
-    encoderValue = 0;
   }
-
-  lastEncoded = encoded;
 
   if (prevButton.wasPressed())
   {
@@ -229,12 +214,13 @@ void loop1()
       u8g2.drawBox(1, 1, filledPixels, 8); // preenchimento
 
     // ==== Track name centralizado ====
+    // TODO: text scrolling
     int textWidth = u8g2.getStrWidth(trackCopy);
     int x = (screenWidth - textWidth) / 2;
     int y = screenHeight / 2;
     u8g2.drawStr(x, y, trackCopy);
 
-    // ==== Ícones no rodapé ====
+    // ==== Ícones (previous play next) ====
     int iconY = screenHeight - ICON_8_HEIGHT;
     int prevX = 8;
     int playX = (screenWidth - ICON_8_WIDTH) / 2;
