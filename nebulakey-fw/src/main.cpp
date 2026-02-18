@@ -145,24 +145,22 @@ void loop()
   }
 }
 
+void setup1()
+{
+  u8g2.begin();
+  u8g2.setPowerSave(0);
+  u8g2.setBusClock(400000);
+}
+
 // executa coisas relacionadas ao display no outro core (i2c pesado), pra n acabar travando o encoder
 // ! LEMBRAR SEMPRE: usar valores thread-safe (uint8_t) com volatile
 void loop1()
 {
   static unsigned long lastDisplayUpdate = 0;
-  static bool displayReady = false;
   static char lastTrack[32] = "";
   static uint16_t lastTime = 0;
   static uint16_t lastEnd = 0;
   static unsigned long lastHeartbeat = 0;
-
-  if (!displayReady)
-  {
-    u8g2.begin();
-    u8g2.setPowerSave(0);
-    u8g2.setBusClock(400000);
-    displayReady = true;
-  }
 
   // Atualiza quando os dados mudam, com um heartbeat lento para evitar tela “travada”
   if (millis() - lastDisplayUpdate > 33)
