@@ -156,6 +156,8 @@ void loop1()
   static uint16_t lastEnd = 0;
   static unsigned long lastHeartbeat = 0;
 
+  static uint16_t scrollIndex = 0;
+
   if (!displayReady)
   {
     u8g2.begin();
@@ -216,9 +218,26 @@ void loop1()
     // ==== Track name centralizado ====
     // TODO: text scrolling
     int textWidth = u8g2.getStrWidth(trackCopy);
-    int x = (screenWidth - textWidth) / 2;
-    int y = screenHeight / 2;
-    u8g2.drawStr(x, y, trackCopy);
+
+    if (textWidth > screenWidth)
+    {
+      int x = 0 - scrollIndex;
+      int y = screenHeight / 2;
+      // draw twice to avoid blank screen
+      u8g2.drawStr(x, y, trackCopy);
+      u8g2.drawStr(x + textWidth + 8, y, trackCopy);
+
+      scrollIndex++;
+      // Reset scroll when text has fully scrolled off screen
+      if (scrollIndex > textWidth + screenWidth + 8)
+        scrollIndex = 0;
+    }
+    else
+    {
+      int x = (screenWidth - textWidth) / 2;
+      int y = screenHeight / 2;
+      u8g2.drawStr(x, y, trackCopy);
+    }
 
     // ==== Ícones (previous play next) ====
     int iconY = screenHeight - ICON_8_HEIGHT;
