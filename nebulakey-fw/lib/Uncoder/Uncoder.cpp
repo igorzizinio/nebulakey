@@ -32,23 +32,23 @@ void Uncoder::update()
 
   if (encoderValue >= 4)
   {
-    direction = 1;
+    direction = Direction::PLUS;
     encoderValue = 0;
   }
   else if (encoderValue <= -4)
   {
-    direction = -1;
+    direction = Direction::MINUS;
     encoderValue = 0;
   }
   else
   {
-    direction = 0;
+    direction = Direction::NEUTRAL;
   }
 
   lastEncoded = encoded;
 }
 
-int8_t Uncoder::getDirection()
+Direction Uncoder::getDirection()
 {
   return direction;
 }

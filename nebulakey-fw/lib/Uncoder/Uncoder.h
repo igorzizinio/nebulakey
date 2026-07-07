@@ -3,6 +3,12 @@
 
 #include <Arduino.h>
 
+enum class Direction {
+  MINUS,
+  NEUTRAL,
+  PLUS
+};
+
 class Uncoder
 {
 public:
@@ -10,7 +16,7 @@ public:
 
   void begin();
   void update();
-  int8_t getDirection(); // -1, 0 ou 1
+  Direction getDirection(); // MINUS, NEUTRAL or PLUS
 
 private:
   uint8_t dtPin;
@@ -18,7 +24,7 @@ private:
 
   int lastEncoded = 0;
   int encoderValue = 0;
-  int8_t direction = 0;
+  Direction direction = Direction::NEUTRAL;
 };
 
 #endif

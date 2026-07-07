@@ -74,20 +74,23 @@ void loop()
     Keyboard.consumerRelease();
   }
 
-  int8_t direction = encoder.getDirection();
-
-  if (direction == 1)
+  switch (encoder.getDirection())
   {
+  case Direction::PLUS:
     Serial.println("Volume +");
     Keyboard.consumerPress(KEY_VOLUME_INCREMENT);
     Keyboard.consumerRelease();
-  }
+    break;
 
-  if (direction == -1)
-  {
+  case Direction::MINUS:
     Serial.println("Volume -");
     Keyboard.consumerPress(KEY_VOLUME_DECREMENT);
     Keyboard.consumerRelease();
+    break;
+
+  case Direction::NEUTRAL:
+    // Do nothing
+    break;
   }
 
   if (prevButton.wasPressed())
@@ -112,7 +115,6 @@ void loop()
     {
       Serial.println("HOWDY");
     }
-
     else if (line.startsWith("TRACK: "))
     {
       strncpy((char *)currentTrack, line.substring(7).c_str(), sizeof(currentTrack) - 1);
@@ -197,7 +199,6 @@ void loop1()
     u8g2.drawBox(1, 1, filledPixels, 8); // preenchimento
 
   // ==== Track name centralizado ====
-  // TODO: text scrolling
   int textWidth = u8g2.getStrWidth(trackCopy);
 
   if (textWidth > screenWidth)
